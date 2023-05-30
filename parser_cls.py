@@ -149,16 +149,32 @@ class AvitoParse:
 if __name__ == '__main__':
 
     from telebot import TeleBot, types
-
+    import sqlite3
+    
+    '''Создаем соединение с базой данных'''
+    conn = sqlite3.connect('userdata.db')
+    cursor = conn.cursor()
+    
+    '''Создаем таблицу userdata, если она не существует'''
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS userdata (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        num_ads INTEGER,
+        max_price INTEGER,
+        min_price INTEGER,
+        url TEXT
+        )
+    ''')
 
     TOKEN = '6276819341:AAFWSydjrYMWG2yYKqKarSsF4TFp9e6YaZA'
     bot = TeleBot(TOKEN)
     user_data = {}
-    
 
 
     @bot.message_handler(commands=["start"])
     def send_welcome(message):
+        
         bot.send_message(message.chat.id, f'Приветствую, {message.from_user.first_name} \U0001F44B')
         bot.send_message(message.chat.id, """Меня зовут Avito bot\U0001F680, с моей помощью ты можешь собирать необходимую информацию с сайта авито.\n\n\U0001F9FEПравила просты: от тебя потребуется некоторая информация о товаре, я в свою очередь, предоставлю все объявления которые смогу найти.""" ) 
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -169,39 +185,109 @@ if __name__ == '__main__':
 
     @bot.message_handler(commands=["change"])
     def put_data(message):
+        
+        conn = sqlite3.connect('userdata.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM userdata WHERE id = ?", (message.from_user.id,))
+        user = cursor.fetchone()
+        
+        if user:
+            # Если пользователь уже есть в базе данных, очищаем его данные
+            cursor.execute("UPDATE userdata SET name = NULL, num_ads = NULL, max_price = NULL, min_price = NULL, url = NULL WHERE id = ?",
+                        (message.from_user.id,))
+            conn.commit()
+        else:
+            # Если пользователь отсутствует в базе данных, добавляем его без заполнения данных
+            cursor.execute("INSERT INTO userdata (id) VALUES (?)", (message.from_user.id,))
+            conn.commit()
+        
+        conn.close()
+        
         bot.send_message(message.chat.id, "\U00002757Запущен процесс ввода данных")
         msg = bot.send_message(message.chat.id, "Введите название товара, который хотите найти")
         bot.register_next_step_handler(msg, get_name)
         
     def get_name(message):
-        global user_data
-        user_data['keys'] = message.text
+        user_id = message.from_user.id
+        name = message.text
+        
+        conn = sqlite3.connect('userdata.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM userdata WHERE id = ?", (message.from_user.id,))
+        user = cursor.fetchone()
+        
+        if user:
+            cursor.execute("UPDATE userdata SET name = ? WHERE id = ?", (name, user_id))
+            conn.commit()
+        else:
+            cursor.execute("INSERT INTO userdata (id, name) VALUES (?, ?)", (user_id, name))
+            conn.commit()
+        conn.close()
+        
         msg = bot.send_message(message.chat.id, "Введите количество страниц, которые необходимо спарсить")
         bot.register_next_step_handler(msg, get_num_ads)
 
     def get_num_ads(message):
-        global user_data
-        user_data['num_ads'] = message.text
+        user_id = message.from_user.id
+        num_ads = message.text
+        
+        conn = sqlite3.connect('userdata.db')
+        cursor = conn.cursor()
+        
+        cursor.execute("UPDATE userdata SET num_ads = ? WHERE id = ?", (num_ads, user_id))
+        conn.commit()
+        conn.close()
+        
         msg = bot.send_message(message.chat.id, "Введите максимальную цену товара")
         bot.register_next_step_handler(msg, get_max_price)
         
     def get_max_price(message):
-        global user_data
-        user_data['max_price'] = message.text
+        user_id = message.from_user.id
+        max_price = message.text
+        
+        conn = sqlite3.connect('userdata.db')
+        cursor = conn.cursor()
+        
+        cursor.execute("UPDATE userdata SET max_price = ? WHERE id = ?", (max_price, user_id))
+        conn.commit()
+        conn.close()
+        
         msg = bot.send_message(message.chat.id, "Введите минимальную цену товара")
         bot.register_next_step_handler(msg, get_min_price)
         
     def get_min_price(message):
-        global user_data
-        user_data['min_price'] = message.text
+        user_id = message.from_user.id
+        min_price = message.text
+        
+        conn = sqlite3.connect('userdata.db')
+        cursor = conn.cursor()
+        
+        cursor.execute("UPDATE userdata SET min_price = ? WHERE id = ?", (min_price, user_id))
+        conn.commit()
+        conn.close()
+        
         msg = bot.send_message(message.chat.id, "Ссылку страницы авито")
         bot.register_next_step_handler(msg, get_url)
         
     def get_url(message):
-        global user_data
-        user_data['url'] = message.text
+        user_id = message.from_user.id
+        url = message.text
+        
+        conn = sqlite3.connect('userdata.db')
+        cursor = conn.cursor()
+        
+        cursor.execute("UPDATE userdata SET url = ? WHERE id = ?", (url, user_id))
+        conn.commit()
+        
+        cursor.execute("SELECT * FROM userdata WHERE id = ?", (user_id,))
+        user_data = cursor.fetchone()
+        
+        conn.close()
+        
+        
+        
         bot.send_message(message.chat.id, "\U00002714Отлично, данные успешно заполнены")
-        bot.send_message(message.chat.id, f"\U0001F4CBВаши введенные данные:\n\n1. Название товара - {user_data['keys']}\n2. Кол-во страниц, которые необходимо спарсить - {user_data['num_ads']}\n3. Максимальная цена товара - {user_data['max_price']}\n4. Минимальная цена товара - {user_data['min_price']}\n5. Ссылка - {user_data['url']}")
+        bot.send_message(message.chat.id, f"\U0001F4CBВаши введенные данные:\n\n1. Название товара - {user_data[1]}\n2. Кол-во страниц, которые необходимо спарсить - {user_data[2]}\n3. Максимальная цена товара - {user_data[3]}\n4. Минимальная цена товара - {user_data[4]}\n5. Ссылка - {user_data[5]}")
         markup = types.InlineKeyboardMarkup(row_width=2)
         btn1 = types.InlineKeyboardButton('Начать парсинг\U0001F680', callback_data='start')
         btn2 = types.InlineKeyboardButton('Перезаписать данные\U0001F501', callback_data='change')
@@ -215,12 +301,30 @@ if __name__ == '__main__':
             if call.data == 'start':
                 bot.send_message(call.message.chat.id, "\U00002757Начинаю парсинг, пожалуйста подождите, это может занять некоторое время\U0000231B")
                 
-                url = user_data['url']
-                num_ads = int(user_data["num_ads"])
-                keys = user_data['keys']
-                max_price = int(user_data['max_price'])
-                min_price = int(user_data['min_price'])
+                user_id = call.from_user.id
+                
+                conn = sqlite3.connect('userdata.db')
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM userdata WHERE id = ?", (user_id,))
+                user_data = cursor.fetchone()
+                
+                if user_data:
+                    keys = user_data[1]
+                    num_ads = user_data[2]
+                    max_price = user_data[3]
+                    min_price = user_data[4]
+                    url = user_data[5]
+                else:
+                     bot.send_message(call.message.chat.id, "❌ Ошибка: пользователь не найден в базе данных.")
+                
+                conn.close()
+                # url = user_data['url']
+                # num_ads = int(user_data["num_ads"])
+                # keys = user_data['keys']
+                # max_price = int(user_data['max_price'])
+                # min_price = int(user_data['min_price'])
                 flag = True
+                file_name = f'result/text_{call.from_user.id}.xlsx'
                 
                 while flag:
                     try:
@@ -235,11 +339,11 @@ if __name__ == '__main__':
                         
                         global info                        
                         df = pd.DataFrame.from_dict(info)
-                        df.to_excel('result/text.xlsx')                        
-                        bot.send_document(call.message.chat.id, open(f'result/text.xlsx', 'rb'))       
-                        f = open('result/text.xlsx.', 'w')
-                        f.close()
-                        flag = False
+                        df.to_excel(file_name)                        
+                        bot.send_document(call.message.chat.id, open(file_name, 'rb'))       
+                        os.remove(file_name)
+                        
+                        flag = False                        
                         logger.info('Конец')
                     except Exception as error:
                         logger.error(error)
@@ -251,4 +355,3 @@ if __name__ == '__main__':
                 put_data(message=call.message)
         
     bot.polling(none_stop=True, interval = 0)
-
