@@ -3,9 +3,7 @@ import subprocess
 import time
 from random import choice
 import pandas as pd
-
 import undetected_chromedriver as uc
-# from notifiers.logging import NotificationHandler
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.window import WindowTypes
 from loguru import logger
@@ -172,9 +170,9 @@ if __name__ == '__main__':
     user_data = {}
 
 
+    '''Обработка команды /start'''
     @bot.message_handler(commands=["start"])
     def send_welcome(message):
-        
         bot.send_message(message.chat.id, f'Приветствую, {message.from_user.first_name} \U0001F44B')
         bot.send_message(message.chat.id, """Меня зовут Avito bot\U0001F680, с моей помощью ты можешь собирать необходимую информацию с сайта авито.\n\n\U0001F9FEПравила просты: от тебя потребуется некоторая информация о товаре, я в свою очередь, предоставлю все объявления которые смогу найти.""" ) 
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -182,7 +180,7 @@ if __name__ == '__main__':
         markup.add(btn)
         bot.send_message(message.chat.id, "Прежде всего нужно заполнить данные\U0001F4DD", reply_markup=markup)
 
-
+    '''Обработка команды /change'''
     @bot.message_handler(commands=["change"])
     def put_data(message):
         
@@ -200,26 +198,31 @@ if __name__ == '__main__':
             # Если пользователь отсутствует в базе данных, добавляем его без заполнения данных
             cursor.execute("INSERT INTO userdata (id) VALUES (?)", (message.from_user.id,))
             conn.commit()
-        
         conn.close()
         
         bot.send_message(message.chat.id, "\U00002757Запущен процесс ввода данных")
         msg = bot.send_message(message.chat.id, "Введите название товара, который хотите найти")
         bot.register_next_step_handler(msg, get_name)
         
+    '''Функция для получения названия товара от пользователя'''    
     def get_name(message):
         user_id = message.from_user.id
         name = message.text
         
+        # Создаем соединение с базой данных
         conn = sqlite3.connect('userdata.db')
         cursor = conn.cursor()
+        
+        # Проверяем наличие пользователя в базе данных по его идентификатору
         cursor.execute("SELECT * FROM userdata WHERE id = ?", (message.from_user.id,))
         user = cursor.fetchone()
         
         if user:
+            # Если пользователь уже запускал скрипт, обновляем имя товара
             cursor.execute("UPDATE userdata SET name = ? WHERE id = ?", (name, user_id))
             conn.commit()
         else:
+            # Если пользователь не запускал скрипт, вставляем имя товара
             cursor.execute("INSERT INTO userdata (id, name) VALUES (?, ?)", (user_id, name))
             conn.commit()
         conn.close()
@@ -227,13 +230,16 @@ if __name__ == '__main__':
         msg = bot.send_message(message.chat.id, "Введите количество страниц, которые необходимо спарсить")
         bot.register_next_step_handler(msg, get_num_ads)
 
+    '''Функция для получения кол-ва страниц''' 
     def get_num_ads(message):
         user_id = message.from_user.id
         num_ads = message.text
         
+        # Создаем соединение с базой данных
         conn = sqlite3.connect('userdata.db')
         cursor = conn.cursor()
         
+        # Обновляем данные пользователя
         cursor.execute("UPDATE userdata SET num_ads = ? WHERE id = ?", (num_ads, user_id))
         conn.commit()
         conn.close()
@@ -241,13 +247,16 @@ if __name__ == '__main__':
         msg = bot.send_message(message.chat.id, "Введите максимальную цену товара")
         bot.register_next_step_handler(msg, get_max_price)
         
+    '''Функция для получения макс цены'''     
     def get_max_price(message):
         user_id = message.from_user.id
         max_price = message.text
         
+        # Создаем соединение с базой данных
         conn = sqlite3.connect('userdata.db')
         cursor = conn.cursor()
         
+        # Обновляем данные пользователя
         cursor.execute("UPDATE userdata SET max_price = ? WHERE id = ?", (max_price, user_id))
         conn.commit()
         conn.close()
@@ -255,6 +264,7 @@ if __name__ == '__main__':
         msg = bot.send_message(message.chat.id, "Введите минимальную цену товара")
         bot.register_next_step_handler(msg, get_min_price)
         
+    '''Функция для получения мин цены'''        
     def get_min_price(message):
         user_id = message.from_user.id
         min_price = message.text
@@ -268,24 +278,22 @@ if __name__ == '__main__':
         
         msg = bot.send_message(message.chat.id, "Ссылку страницы авито")
         bot.register_next_step_handler(msg, get_url)
-        
+    
+    '''Функция для получения ссылки на страницу'''        
     def get_url(message):
         user_id = message.from_user.id
         url = message.text
         
         conn = sqlite3.connect('userdata.db')
         cursor = conn.cursor()
-        
         cursor.execute("UPDATE userdata SET url = ? WHERE id = ?", (url, user_id))
         conn.commit()
         
+        # Записываем данные из бд в переменную, для вывода информации пользователю
         cursor.execute("SELECT * FROM userdata WHERE id = ?", (user_id,))
         user_data = cursor.fetchone()
-        
         conn.close()
-        
-        
-        
+               
         bot.send_message(message.chat.id, "\U00002714Отлично, данные успешно заполнены")
         bot.send_message(message.chat.id, f"\U0001F4CBВаши введенные данные:\n\n1. Название товара - {user_data[1]}\n2. Кол-во страниц, которые необходимо спарсить - {user_data[2]}\n3. Максимальная цена товара - {user_data[3]}\n4. Минимальная цена товара - {user_data[4]}\n5. Ссылка - {user_data[5]}")
         markup = types.InlineKeyboardMarkup(row_width=2)
@@ -302,13 +310,13 @@ if __name__ == '__main__':
                 bot.send_message(call.message.chat.id, "\U00002757Начинаю парсинг, пожалуйста подождите, это может занять некоторое время\U0000231B")
                 
                 user_id = call.from_user.id
-                
                 conn = sqlite3.connect('userdata.db')
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM userdata WHERE id = ?", (user_id,))
                 user_data = cursor.fetchone()
                 
                 if user_data:
+                    '''Заполняем параметры для старта парсинга'''
                     keys = user_data[1]
                     num_ads = user_data[2]
                     max_price = user_data[3]
@@ -318,11 +326,6 @@ if __name__ == '__main__':
                      bot.send_message(call.message.chat.id, "❌ Ошибка: пользователь не найден в базе данных.")
                 
                 conn.close()
-                # url = user_data['url']
-                # num_ads = int(user_data["num_ads"])
-                # keys = user_data['keys']
-                # max_price = int(user_data['max_price'])
-                # min_price = int(user_data['min_price'])
                 flag = True
                 file_name = f'result/text_{call.from_user.id}.xlsx'
                 
@@ -337,12 +340,17 @@ if __name__ == '__main__':
                         ).parse()
                         bot.send_message(call.message.chat.id, "\U00002705Парсинг завершен. Вот файл с данными.")
                         
-                        global info                        
+                        global info
+                        '''Записываем полученные данные из списка info в xlsx файл'''                        
                         df = pd.DataFrame.from_dict(info)
+                        info = []
                         df.to_excel(file_name)                        
-                        bot.send_document(call.message.chat.id, open(file_name, 'rb'))       
-                        os.remove(file_name)
+                        bot.send_document(call.message.chat.id, open(file_name, 'rb'))
                         
+                        '''После отправки пользователю очищаем файл с полученными данными'''
+                        f = open(file_name, 'w')
+                        f.close()
+                        #os.remove(file_name)       
                         flag = False                        
                         logger.info('Конец')
                     except Exception as error:
