@@ -35,3 +35,4 @@ TOKEN = '6276819341:AAFWSydjrYMWG2yYKqKarSsF4TFp9e6YaZA'
 ```
 python parser_cls.py
 ```
+Далее переходим в телеграмм бота, вводим необходимые данные и запускаем процесс парсинга
