@@ -167,7 +167,6 @@ if __name__ == '__main__':
 
     TOKEN = '6276819341:AAFWSydjrYMWG2yYKqKarSsF4TFp9e6YaZA'
     bot = TeleBot(TOKEN)
-    user_data = {}
 
 
     '''Обработка команды /start'''
@@ -304,7 +303,6 @@ if __name__ == '__main__':
 
     @bot.callback_query_handler(func=lambda call:True)
     def callback(call):
-        global user_data
         if call.message:
             if call.data == 'start':
                 bot.send_message(call.message.chat.id, "\U00002757Начинаю парсинг, пожалуйста подождите, это может занять некоторое время\U0000231B")
